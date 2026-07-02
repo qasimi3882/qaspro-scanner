@@ -95,8 +95,14 @@ private fun App() {
                     }
                     refresh()
                 }
-                // Auto-relaunch camera for next document without returning to home screen
-                launchScan(ScanIntentKind.CONTINUOUS)
+                // Inline relaunch — avoids a forward reference to launchScan which is defined below.
+                Scanner.documentClient().getStartScanIntent(activity)
+                    .addOnSuccessListener { sender ->
+                        scannerLauncher.launch(IntentSenderRequest.Builder(sender).build())
+                    }
+                    .addOnFailureListener {
+                        Toast.makeText(context, "Scanner is not ready yet. Try again.", Toast.LENGTH_LONG).show()
+                    }
             }
             else -> {
                 scan.pdf?.uri?.let { pdfUri ->
