@@ -50,6 +50,12 @@ object DocumentStore {
         return target
     }
 
+    /** Compose the front and back of an ID onto a single-page PDF and save it. */
+    fun saveIdCard(context: Context, pageUris: List<Uri>): File? {
+        val target = uniqueFile(dir(context), newFileName("ID_Card"))
+        return com.qaspro.scanner.scan.IdCardComposer.compose(context, pageUris, target)
+    }
+
     /** Never overwrite an existing scan — append _2, _3, … on name collision. */
     private fun uniqueFile(dir: File, fileName: String): File {
         var candidate = File(dir, fileName)
