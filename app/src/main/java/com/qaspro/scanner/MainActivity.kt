@@ -13,7 +13,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,11 +59,14 @@ private fun App() {
     val scope = rememberCoroutineScope()
 
     var docs by remember { mutableStateOf(DocumentStore.list(context)) }
-    // rememberSaveable: survives rotation and Android killing the app while the camera is open,
-    // so an "Extract Text" scan is never misrouted into a plain document save.
     var pendingKind by rememberSaveable { mutableStateOf(ScanIntentKind.DOCUMENT) }
     var busy by remember { mutableStateOf(false) }
     var extractedText by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // Each increment triggers LaunchedEffect below to relaunch the scanner for Continuous mode.
+    // Using a counter (not a boolean) ensures every save triggers exactly one new scan,
+    // even if two saves happen before the effect runs.
+    var continuousRelaunchTick by remember { mutableIntStateOf(0) }
 
     fun refresh() { docs = DocumentStore.list(context) }
 
@@ -69,7 +74,8 @@ private fun App() {
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
-        val scan = GmsDocumentScanningResult.fromActivityResultIntent(result.data) ?: return@rememberLauncherForActivityResult
+        val scan = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
+            ?: return@rememberLauncherForActivityResult
 
         when (pendingKind) {
             ScanIntentKind.EXTRACT_TEXT -> {
@@ -95,14 +101,9 @@ private fun App() {
                     }
                     refresh()
                 }
-                // Inline relaunch — avoids a forward reference to launchScan which is defined below.
-                Scanner.documentClient().getStartScanIntent(activity)
-                    .addOnSuccessListener { sender ->
-                        scannerLauncher.launch(IntentSenderRequest.Builder(sender).build())
-                    }
-                    .addOnFailureListener {
-                        Toast.makeText(context, "Scanner is not ready yet. Try again.", Toast.LENGTH_LONG).show()
-                    }
+                // Signal the LaunchedEffect below to relaunch — avoids referencing scannerLauncher
+                // inside its own initializer, which Kotlin does not allow.
+                continuousRelaunchTick++
             }
             else -> {
                 scan.pdf?.uri?.let { pdfUri ->
@@ -117,21 +118,32 @@ private fun App() {
         }
     }
 
+    // Relaunches the document scanner each time continuousRelaunchTick increments.
+    // Defined after scannerLauncher so it can safely capture it.
+    LaunchedEffect(continuousRelaunchTick) {
+        if (continuousRelaunchTick > 0) {
+            Scanner.documentClient().getStartScanIntent(activity)
+                .addOnSuccessListener { sender ->
+                    scannerLauncher.launch(IntentSenderRequest.Builder(sender).build())
+                }
+                .addOnFailureListener {
+                    Toast.makeText(context, "Scanner is not ready yet. Try again.", Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+
     fun launchScan(kind: ScanIntentKind) {
         pendingKind = kind
         val client = when (kind) {
             ScanIntentKind.ID_CARD -> Scanner.idCardClient()
             ScanIntentKind.EXTRACT_TEXT -> Scanner.singlePageClient()
-            ScanIntentKind.CONTINUOUS -> Scanner.documentClient()
-            ScanIntentKind.DOCUMENT -> Scanner.documentClient()
+            ScanIntentKind.CONTINUOUS, ScanIntentKind.DOCUMENT -> Scanner.documentClient()
         }
         client.getStartScanIntent(activity)
             .addOnSuccessListener { sender ->
                 scannerLauncher.launch(IntentSenderRequest.Builder(sender).build())
             }
             .addOnFailureListener {
-                // Scanner module may still be downloading on a fresh device — tell the user
-                // instead of silently doing nothing.
                 Toast.makeText(
                     context,
                     "Scanner is not ready yet. Connect to the internet, wait a minute, and try again.",
