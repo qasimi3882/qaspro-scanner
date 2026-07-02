@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** What to do once the scanner returns. */
-enum class ScanIntentKind { DOCUMENT, ID_CARD, EXTRACT_TEXT }
+enum class ScanIntentKind { DOCUMENT, ID_CARD, EXTRACT_TEXT, CONTINUOUS }
 
 class MainActivity : ComponentActivity() {
 
@@ -87,6 +87,17 @@ private fun App() {
                     }
                 }
             }
+            ScanIntentKind.CONTINUOUS -> {
+                scan.pdf?.uri?.let { pdfUri ->
+                    val saved = DocumentStore.savePdf(context, pdfUri, DocumentStore.newFileName("Scan"))
+                    if (saved == null) {
+                        Toast.makeText(context, "Could not save the scan. Please try again.", Toast.LENGTH_LONG).show()
+                    }
+                    refresh()
+                }
+                // Auto-relaunch camera for next document without returning to home screen
+                launchScan(ScanIntentKind.CONTINUOUS)
+            }
             else -> {
                 scan.pdf?.uri?.let { pdfUri ->
                     val prefix = if (pendingKind == ScanIntentKind.ID_CARD) "ID_Card" else "Scan"
@@ -105,6 +116,7 @@ private fun App() {
         val client = when (kind) {
             ScanIntentKind.ID_CARD -> Scanner.idCardClient()
             ScanIntentKind.EXTRACT_TEXT -> Scanner.singlePageClient()
+            ScanIntentKind.CONTINUOUS -> Scanner.documentClient()
             ScanIntentKind.DOCUMENT -> Scanner.documentClient()
         }
         client.getStartScanIntent(activity)
@@ -130,6 +142,7 @@ private fun App() {
         onScanDocument = { launchScan(ScanIntentKind.DOCUMENT) },
         onScanIdCard = { launchScan(ScanIntentKind.ID_CARD) },
         onExtractText = { launchScan(ScanIntentKind.EXTRACT_TEXT) },
+        onContinuousScan = { launchScan(ScanIntentKind.CONTINUOUS) },
         onOpen = { doc ->
             val uri = DocumentStore.uriFor(context, doc.file)
             val view = Intent(Intent.ACTION_VIEW).apply {

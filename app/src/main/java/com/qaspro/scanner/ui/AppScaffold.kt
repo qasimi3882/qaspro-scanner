@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
@@ -72,6 +73,7 @@ fun AppScaffold(
     onScanDocument: () -> Unit,
     onScanIdCard: () -> Unit,
     onExtractText: () -> Unit,
+    onContinuousScan: () -> Unit,
     onOpen: (ScanDoc) -> Unit,
     onShare: (ScanDoc) -> Unit,
     onDelete: (ScanDoc) -> Unit,
@@ -99,9 +101,9 @@ fun AppScaffold(
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (tab) {
                 1 -> FilesTab(docs, onOpen, onShare, onDelete)
-                2 -> ToolsTab(onScanDocument, onScanIdCard, onExtractText)
+                2 -> ToolsTab(onScanDocument, onScanIdCard, onExtractText, onContinuousScan)
                 3 -> MeTab()
-                else -> HomeTab(docs, onScanDocument, onScanIdCard, onExtractText, onOpen, onShare, onDelete)
+                else -> HomeTab(docs, onScanDocument, onScanIdCard, onExtractText, onContinuousScan, onOpen, onShare, onDelete, onNavigateToTools = { tab = 2 })
             }
 
             if (busy) {
@@ -151,20 +153,23 @@ private fun HomeTab(
     onScanDocument: () -> Unit,
     onScanIdCard: () -> Unit,
     onExtractText: () -> Unit,
+    onContinuousScan: () -> Unit,
     onOpen: (ScanDoc) -> Unit,
     onShare: (ScanDoc) -> Unit,
     onDelete: (ScanDoc) -> Unit,
+    onNavigateToTools: () -> Unit,
 ) {
     val green = Color(0xFF12B886)
     val blue = Color(0xFF4C8DFF)
     val tools = listOf(
         Tool("Smart Scan", Icons.Filled.DocumentScanner, green, onScanDocument),
-        Tool("PDF Tools", Icons.Filled.PictureAsPdf, blue, onScanDocument),
-        Tool("Import Images", Icons.Filled.Image, blue, onScanDocument),
-        Tool("Import Files", Icons.Filled.FolderOpen, blue, onScanDocument),
+        Tool("Continuous", Icons.Filled.Autorenew, green, onContinuousScan),
         Tool("ID Cards", Icons.Filled.Badge, green, onScanIdCard),
         Tool("Extract Text", Icons.Filled.TextFields, green, onExtractText),
-        Tool("All", Icons.Filled.GridView, blue, onScanDocument),
+        Tool("Import Images", Icons.Filled.Image, blue, onScanDocument),
+        Tool("Import Files", Icons.Filled.FolderOpen, blue, onScanDocument),
+        Tool("PDF Tools", Icons.Filled.PictureAsPdf, blue, onScanDocument),
+        Tool("All", Icons.Filled.GridView, blue, onNavigateToTools),
     )
 
     LazyColumn(
@@ -200,13 +205,14 @@ private fun HomeTab(
 }
 
 @Composable
-private fun ToolsTab(onScanDocument: () -> Unit, onScanIdCard: () -> Unit, onExtractText: () -> Unit) {
+private fun ToolsTab(onScanDocument: () -> Unit, onScanIdCard: () -> Unit, onExtractText: () -> Unit, onContinuousScan: () -> Unit) {
     val green = Color(0xFF12B886)
     val blue = Color(0xFF4C8DFF)
     val tools = listOf(
+        Tool("Smart Scan", Icons.Filled.DocumentScanner, green, onScanDocument),
+        Tool("Continuous", Icons.Filled.Autorenew, green, onContinuousScan),
         Tool("ID Cards", Icons.Filled.Badge, green, onScanIdCard),
         Tool("Extract Text", Icons.Filled.TextFields, green, onExtractText),
-        Tool("Smart Scan", Icons.Filled.DocumentScanner, green, onScanDocument),
         Tool("PDF Tools", Icons.Filled.PictureAsPdf, blue, onScanDocument),
         Tool("Import Images", Icons.Filled.Image, blue, onScanDocument),
         Tool("Import Files", Icons.Filled.FolderOpen, blue, onScanDocument),
@@ -231,7 +237,7 @@ private fun ToolsTab(onScanDocument: () -> Unit, onScanIdCard: () -> Unit, onExt
 @Composable
 private fun MeTab() {
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        Text("Qaspro Scanner", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("Qascanner", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Text("100% free • unlimited • offline. Powered by on-device Google ML Kit.",
             color = Color(0xFF9AA0A6), fontSize = 14.sp)
