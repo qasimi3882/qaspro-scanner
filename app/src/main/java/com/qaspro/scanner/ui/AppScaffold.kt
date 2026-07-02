@@ -237,7 +237,7 @@ private fun ToolsTab(onScanDocument: () -> Unit, onScanIdCard: () -> Unit, onExt
 @Composable
 private fun MeTab() {
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        Text("Qascanner", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("Scanly", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         Text("100% free • unlimited • offline. Powered by on-device Google ML Kit.",
             color = Color(0xFF9AA0A6), fontSize = 14.sp)
