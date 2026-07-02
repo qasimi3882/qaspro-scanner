@@ -32,13 +32,34 @@ object DocumentStore {
         return "${prefix}_$stamp.pdf"
     }
 
-    /** Copy a freshly scanned PDF (from ML Kit) into permanent storage. */
-    fun savePdf(context: Context, source: Uri, fileName: String): File {
-        val target = File(dir(context), fileName)
-        context.contentResolver.openInputStream(source)?.use { input ->
-            target.outputStream().use { output -> input.copyTo(output) }
+    /**
+     * Copy a freshly scanned PDF (from ML Kit) into permanent storage.
+     * Returns null if the copy failed so callers can tell the user.
+     */
+    fun savePdf(context: Context, source: Uri, fileName: String): File? {
+        val target = uniqueFile(dir(context), fileName)
+        val result = runCatching {
+            context.contentResolver.openInputStream(source)?.use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            }
+        }
+        if (result.isFailure || result.getOrNull() == null || target.length() == 0L) {
+            target.delete()
+            return null
         }
         return target
+    }
+
+    /** Never overwrite an existing scan — append _2, _3, … on name collision. */
+    private fun uniqueFile(dir: File, fileName: String): File {
+        var candidate = File(dir, fileName)
+        val base = fileName.removeSuffix(".pdf")
+        var counter = 2
+        while (candidate.exists()) {
+            candidate = File(dir, "${base}_$counter.pdf")
+            counter++
+        }
+        return candidate
     }
 
     fun list(context: Context): List<ScanDoc> =

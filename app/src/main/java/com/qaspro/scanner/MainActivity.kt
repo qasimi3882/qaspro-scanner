@@ -3,10 +3,12 @@ package com.qaspro.scanner
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
@@ -15,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -54,9 +57,11 @@ private fun App() {
     val scope = rememberCoroutineScope()
 
     var docs by remember { mutableStateOf(DocumentStore.list(context)) }
-    var pendingKind by remember { mutableStateOf(ScanIntentKind.DOCUMENT) }
+    // rememberSaveable: survives rotation and Android killing the app while the camera is open,
+    // so an "Extract Text" scan is never misrouted into a plain document save.
+    var pendingKind by rememberSaveable { mutableStateOf(ScanIntentKind.DOCUMENT) }
     var busy by remember { mutableStateOf(false) }
-    var extractedText by remember { mutableStateOf<String?>(null) }
+    var extractedText by rememberSaveable { mutableStateOf<String?>(null) }
 
     fun refresh() { docs = DocumentStore.list(context) }
 
@@ -85,7 +90,10 @@ private fun App() {
             else -> {
                 scan.pdf?.uri?.let { pdfUri ->
                     val prefix = if (pendingKind == ScanIntentKind.ID_CARD) "ID_Card" else "Scan"
-                    DocumentStore.savePdf(context, pdfUri, DocumentStore.newFileName(prefix))
+                    val saved = DocumentStore.savePdf(context, pdfUri, DocumentStore.newFileName(prefix))
+                    if (saved == null) {
+                        Toast.makeText(context, "Could not save the scan. Please try again.", Toast.LENGTH_LONG).show()
+                    }
                     refresh()
                 }
             }
@@ -102,6 +110,15 @@ private fun App() {
         client.getStartScanIntent(activity)
             .addOnSuccessListener { sender ->
                 scannerLauncher.launch(IntentSenderRequest.Builder(sender).build())
+            }
+            .addOnFailureListener {
+                // Scanner module may still be downloading on a fresh device — tell the user
+                // instead of silently doing nothing.
+                Toast.makeText(
+                    context,
+                    "Scanner is not ready yet. Connect to the internet, wait a minute, and try again.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
     }
 

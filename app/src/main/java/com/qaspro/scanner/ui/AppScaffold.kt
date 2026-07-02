@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.FolderOpen
@@ -32,21 +32,24 @@ import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,7 +76,7 @@ fun AppScaffold(
     onShare: (ScanDoc) -> Unit,
     onDelete: (ScanDoc) -> Unit,
 ) {
-    var tab by remember { mutableStateOf(0) }
+    var tab by rememberSaveable { mutableStateOf(0) }
 
     Scaffold(
         containerColor = Color(0xFF111315),
@@ -98,7 +101,7 @@ fun AppScaffold(
                 1 -> FilesTab(docs, onOpen, onShare, onDelete)
                 2 -> ToolsTab(onScanDocument, onScanIdCard, onExtractText)
                 3 -> MeTab()
-                else -> HomeTab(docs, onScanDocument, onScanIdCard, onExtractText, onOpen, onShare)
+                else -> HomeTab(docs, onScanDocument, onScanIdCard, onExtractText, onOpen, onShare, onDelete)
             }
 
             if (busy) {
@@ -122,7 +125,7 @@ fun AppScaffold(
 }
 
 @Composable
-private fun RowScope.bottomItem(
+private fun androidx.compose.foundation.layout.RowScope.bottomItem(
     label: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit,
 ) {
     NavigationBarItem(
@@ -150,6 +153,7 @@ private fun HomeTab(
     onExtractText: () -> Unit,
     onOpen: (ScanDoc) -> Unit,
     onShare: (ScanDoc) -> Unit,
+    onDelete: (ScanDoc) -> Unit,
 ) {
     val green = Color(0xFF12B886)
     val blue = Color(0xFF4C8DFF)
@@ -190,7 +194,7 @@ private fun HomeTab(
                     color = Color(0xFF9AA0A6), fontSize = 14.sp, modifier = Modifier.padding(vertical = 12.dp))
             }
         } else {
-            items(docs) { doc -> DocRow(doc, onOpen, onShare, onDelete = {}) }
+            items(docs) { doc -> DocRow(doc, onOpen, onShare, onDelete) }
         }
     }
 }
@@ -279,6 +283,7 @@ private fun ToolButton(tool: Tool) {
 @Composable
 private fun DocRow(doc: ScanDoc, onOpen: (ScanDoc) -> Unit, onShare: (ScanDoc) -> Unit, onDelete: (ScanDoc) -> Unit) {
     val fmt = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
+    var confirmDelete by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().clickable { onOpen(doc) }.padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -293,5 +298,25 @@ private fun DocRow(doc: ScanDoc, onOpen: (ScanDoc) -> Unit, onShare: (ScanDoc) -
             Text("${fmt.format(doc.date)}  •  ${doc.sizeKb} KB", color = Color(0xFF9AA0A6), fontSize = 12.sp)
         }
         TextButton(onClick = { onShare(doc) }) { Text("Share", color = Color(0xFF12B886)) }
+        IconButton(onClick = { confirmDelete = true }) {
+            Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = Color(0xFF9AA0A6))
+        }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete scan?") },
+            text = { Text("\"${doc.name}\" will be deleted permanently.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; onDelete(doc) }) {
+                    Text("Delete", color = Color(0xFFE5534B))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
+            },
+            containerColor = Color(0xFF1B1E20),
+        )
     }
 }
